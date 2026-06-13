@@ -1,6 +1,3 @@
 {
-  "version": 2,
-  "rootDirectory": "frontend",
-  "outputDirectory": "dist",
-  "framework": "vite"
+  "cleanUrls": true
 }
