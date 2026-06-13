@@ -494,13 +494,38 @@ export default function App() {
                   </div>
                 </div>
                 {/* FIX 1: show all columns as preview tags below uploader */}
-                {excelColumns.length > 0 && (
-                  <div style={{ marginTop: '10px', display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                    {excelColumns.map(col => (
-                      <span key={col} style={styles.columnPillTag}>{col}</span>
-                    ))}
-                  </div>
-                )}
+                {/* ── DATASET TABLE PREVIEW GRID FIX ── */}
+{parsedRows && parsedRows.length > 0 && (
+  <div className="dataset-scroll-container custom-scrollbar" style={{ marginTop: '14px', maxHeight: '300px', overflowY: 'auto' }}>
+    <table className="dataset-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
+      <thead>
+        <tr style={{ backgroundColor: '#202c33' }}>
+          {excelColumns.map((header) => (
+            <th key={header} style={{ padding: '10px 14px', color: '#8696a0', textTransform: 'capitalize', borderBottom: '1px solid #222e35', textAlign: 'left' }}>
+              {header}
+            </th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {parsedRows.slice(0, 10).map((row, index) => (
+          <tr key={index} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+            {excelColumns.map((header) => (
+              <td key={header} style={{ padding: '10px 14px', color: '#d1d7db' }}>
+                {row[header] !== undefined && row[header] !== null ? String(row[header]) : '—'}
+              </td>
+            ))}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+    {parsedRows.length > 10 && (
+      <div style={{ padding: '10px', fontSize: '11px', color: '#8696a0', backgroundColor: '#111b21', textAlign: 'center', borderTop: '1px solid #222e35' }}>
+        Displaying preview of top 10 records (Total cached: {parsedRows.length} rows)
+      </div>
+    )}
+  </div>
+)}
               </section>
 
               {showAiConsole && (
