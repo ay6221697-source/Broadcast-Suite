@@ -5,6 +5,7 @@ import { initializeApp } from 'firebase/app';
 import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from 'firebase/auth';
 
 // Define your persistent, hosted backend cloud server domain path here
+// Replace your old local/Vercel mapping logic with your live Render string:
 const BACKEND_URL = "https://broadcast-suite-backend.onrender.com";
 
 const firebaseConfig = {
