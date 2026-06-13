@@ -5,7 +5,7 @@ import { initializeApp } from 'firebase/app';
 import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from 'firebase/auth';
 
 const firebaseConfig = {
-  apiKey: "AIzaSyCZHIxA3JK4iKuo9Kpo9p9jnyH9cv83vB0", 
+  apiKey: process.env.REACT_APP_FIREBASE_API_KEY || "AIzaSyCZHIxA3JK4iKuo9Kpo9p9jnyH9cv83vB0", 
   authDomain: "whatsapp-e0dd2.firebaseapp.com",
   projectId: "whatsapp-e0dd2",
   storageBucket: "whatsapp-e0dd2.firebasestorage.app",
@@ -15,7 +15,6 @@ const firebaseConfig = {
 
 const firebaseApp = initializeApp(firebaseConfig);
 const auth = getAuth(firebaseApp);
-const socket = io('http://localhost:4000');
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -29,14 +28,13 @@ export default function App() {
   const [connectionStatus, setConnectionStatus] = useState('Disconnected');
   const [qrString, setQrString] = useState('');
 
-  // New state tracking overlay parameter views
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
 
   const [parsedRows, setParsedRows] = useState([]);
   const [templateMessage, setTemplateMessage] = useState('Hi {{Name}}, greeting from workspace team! {{Company}}');
   const [uploadLoading, setUploadLoading] = useState(false);
 
-  const [attachedImage, setAttachedImage] = useState(null);       
+  const [attachedImage, setAttachedImage] = useState(null);      
   const [imagePreviewUrl, setImagePreviewUrl] = useState('');     
   const [imageCaption, setImageCaption] = useState('');          
   const imageInputRef = useRef(null);
@@ -51,6 +49,7 @@ export default function App() {
 
   const [toast, setToast] = useState({ show: false, message: '', type: 'info' });
   const textareaRef = useRef(null);
+  const socketRef = useRef(null);
 
   const showNotification = (message, type = 'info') => {
     setToast({ show: true, message, type });
@@ -58,13 +57,19 @@ export default function App() {
   };
 
   useEffect(() => {
+    // Dynamic Socket Instantiation for Vercel Routing Contexts
+    socketRef.current = io(window.location.origin, { 
+      path: '/_backend/socket.io',
+      transports: ['websocket', 'polling']
+    });
+
     const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
     });
 
-    socket.emit('join_instance', { instanceId: selectedInstanceId });
+    socketRef.current.emit('join_instance', { instanceId: selectedInstanceId });
 
-    socket.on('profiles_update', (profiles) => {
+    socketRef.current.on('profiles_update', (profiles) => {
       setProfileAccounts(profiles);
       const activeMatch = profiles.find(p => p.id === selectedInstanceId);
       if (activeMatch) {
@@ -75,7 +80,7 @@ export default function App() {
       }
     });
 
-    socket.on('qr_code', (data) => {
+    socketRef.current.on('qr_code', (data) => {
       setProfileAccounts(prev => prev.map(p => p.id === data.instanceId ? { ...p, qr: data.qr, status: 'Scan' } : p));
       if (data.instanceId === selectedInstanceId) {
         setQrString(data.qr);
@@ -83,12 +88,12 @@ export default function App() {
       }
     });
 
-    socket.on('status_change', (data) => {
+    socketRef.current.on('status_change', (data) => {
       if (data.instanceId === selectedInstanceId) {
         setConnectionStatus(data.status);
         if (data.status === 'Connected') {
           setQrString('');
-          setIsQrModalOpen(false); // Auto-close modal frame when phone finishes pairing
+          setIsQrModalOpen(false); 
         }
         if (data.status === 'Scan' && data.qr) {
           setQrString(data.qr);
@@ -135,22 +140,22 @@ export default function App() {
 
     return () => {
       unsubscribeAuth();
-      socket.off('profiles_update');
-      socket.off('qr_code');
-      socket.off('status_change');
+      if (socketRef.current) {
+        socketRef.current.disconnect();
+      }
     };
   }, [selectedInstanceId]);
 
   const handleTerminalDisconnect = (e, instanceId) => {
     e.stopPropagation(); 
     showNotification(`Disconnecting WhatsApp session node: ${instanceId.toUpperCase()}`, "warning");
-    socket.emit('logout_terminal_instance', { instanceId });
+    if (socketRef.current) socketRef.current.emit('logout_terminal_instance', { instanceId });
   };
 
   const handleTerminalOpenDevice = (e, instanceId) => {
     e.stopPropagation();
     showNotification(`Querying device metrics framework for: ${instanceId.toUpperCase()}`, "success");
-    socket.emit('request_device_sync', { instanceId });
+    if (socketRef.current) socketRef.current.emit('request_device_sync', { instanceId });
   };
 
   const handleImageAttach = (e) => {
@@ -186,7 +191,7 @@ export default function App() {
       setQrString(targetProfile.qr);
     }
     setSelectedInstanceId(instanceId);
-    socket.emit('join_instance', { instanceId });
+    if (socketRef.current) socketRef.current.emit('join_instance', { instanceId });
   };
 
   const handleLogin = async (e) => {
@@ -211,7 +216,7 @@ export default function App() {
     formData.append('excelFile', file);
     try {
       const identityJwtToken = await auth.currentUser?.getIdToken();
-      const response = await fetch('http://localhost:4000/api/upload-recipients', {
+      const response = await fetch('/_backend/api/upload-recipients', {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${identityJwtToken}` },
         body: formData,
@@ -230,7 +235,7 @@ export default function App() {
     setAiLoading(true);
     try {
       const identityJwtToken = await auth.currentUser?.getIdToken();
-      const response = await fetch('http://localhost:4000/api/generate-template', {
+      const response = await fetch('/_backend/api/generate-template', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${identityJwtToken}` },
         body: JSON.stringify({ businessContext: aiContext, tone: aiTone, sampleRow: parsedRows.length > 0 ? parsedRows[0] : null })
@@ -260,7 +265,7 @@ export default function App() {
     const endpoint = isScheduledCampaign ? 'schedule-broadcast' : 'broadcast';
 
     try {
-      const response = await fetch(`http://localhost:4000/api/${endpoint}`, { 
+      const response = await fetch(`/_backend/api/${endpoint}`, { 
         method: 'POST', 
         headers: { 'Authorization': `Bearer ${identityJwtToken}` }, 
         body: fd 
@@ -433,7 +438,6 @@ export default function App() {
               ))}
             </div>
             
-            {/* CLICKABLE TRIGGER FOOTER LAYER */}
             <div style={styles.sidebarQrFooterZone}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                 <h5 style={{ fontSize: '12px', color: '#e9edef', margin: 0, fontWeight: '500' }}>Quick Pair Node</h5>
@@ -567,7 +571,9 @@ export default function App() {
             </div>
           </main>
         </div>
-        <footer style={styles.footer}><div>&copy; {new Date().getFullYear()} <strong>Prytik Technologies Private Limited</strong>. All rights reserved.</div></footer>
+        <footer style={styles.footer}>
+          <div>&copy; {new Date().getFullYear()} <strong>Prytik Technologies Private Limited</strong>. All rights reserved.</div>
+        </footer>
       </div>
     </div>
   );
@@ -584,7 +590,6 @@ const styles = {
   authErrorContainer: { color: '#f25c5c', fontSize: '13px', backgroundColor: 'rgba(242,92,92,0.08)', border: '1px solid rgba(242,92,92,0.15)', padding: '10px', borderRadius: '6px', marginBottom: '12px', fontWeight: '500' },
   authSubmitButton: { width: '100%', padding: '12px', backgroundColor: '#00a884', color: '#111b21', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: '600', cursor: 'pointer', boxShadow: '0 4px 15px rgba(0,168,132,0.2)' },
   
-  // MODAL OVERLAY INJECTIONS
   modalBackdropOverlay: { position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(11, 20, 26, 0.85)', backdropFilter: 'blur(12px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, transition: 'all 0.2s' },
   modalContentGlassBox: { backgroundColor: '#222e35', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', padding: '24px', width: '90%', maxWidth: '360px', boxShadow: '0 30px 60px rgba(0,0,0,0.6)', display: 'flex', flexDirection: 'column', gap: '20px' },
   modalHeaderGroup: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' },
@@ -626,7 +631,7 @@ const styles = {
   
   fileUploaderArea: { display: 'flex', alignItems: 'center', gap: '16px', backgroundColor: 'rgba(32, 44, 51, 0.5)', padding: '12px', borderRadius: '8px', border: '1px dashed rgba(255,255,255,0.08)' },
   actionStyledUploadButton: { backgroundColor: '#00a884', color: '#111b21', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: '600', fontSize: '13px', boxShadow: '0 2px 8px rgba(0,168,132,0.15)' },
-  waInputStyle: { backgroundColor: 'rgba(42, 57, 66, 0.4)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '6px', padding: '10px 12px', color: '#fff', fontSize: '13px', outline: 'none' },
+  waInputStyle: { width: '100%', boxSizing: 'border-box', backgroundColor: 'rgba(42, 57, 66, 0.4)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '6px', padding: '10px 12px', color: '#fff', fontSize: '13px', outline: 'none' },
   waSelectStyle: { backgroundColor: 'rgba(42, 57, 66, 0.4)', color: '#fff', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '6px', padding: '0 10px', fontSize: '13px', outline: 'none' },
   aiAssistDockContainer: { backgroundColor: 'rgba(147, 51, 234, 0.04)', border: '1px solid rgba(147, 51, 234, 0.15)', borderRadius: '8px', padding: '16px' },
   aiActionButtonRun: { width: '100%', backgroundColor: 'rgba(147, 51, 234, 0.15)', color: '#d8b4fe', border: '1px solid rgba(147, 51, 234, 0.25)', padding: '10px', borderRadius: '6px', cursor: 'pointer', fontWeight: '600', fontSize: '13px' },
