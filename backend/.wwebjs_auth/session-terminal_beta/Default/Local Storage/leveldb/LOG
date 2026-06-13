@@ -1,6 +1,0 @@
-2026/06/12-18:30:51.334 1700 Reusing MANIFEST D:\whatsapp-bulk-suite\backend\.wwebjs_auth\session-terminal_beta\Default\Local Storage\leveldb/MANIFEST-000001
-2026/06/12-18:30:51.345 1700 Recovering log #4
-2026/06/12-18:30:51.375 1700 Reusing old log D:\whatsapp-bulk-suite\backend\.wwebjs_auth\session-terminal_beta\Default\Local Storage\leveldb/000004.log 
-2026/06/12-18:31:05.965 2df8 Level-0 table #7: started
-2026/06/12-18:31:05.979 2df8 Level-0 table #7: 14486 bytes OK
-2026/06/12-18:31:05.994 2df8 Delete type=0 #4
