@@ -233,7 +233,7 @@ export default function App() {
     formData.append('excelFile', file);
     try {
       const identityJwtToken = await auth.currentUser?.getIdToken();
-      const response = await fetch(`${BACKEND_URL}/api/upload-recipients`, {
+     const response = await fetch('https://broadcast-suite-backend.onrender.com/api/upload-recipients', {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${identityJwtToken}` },
         body: formData,
@@ -254,7 +254,7 @@ export default function App() {
     setAiLoading(true);
     try {
       const identityJwtToken = await auth.currentUser?.getIdToken();
-      const response = await fetch(`${BACKEND_URL}/api/generate-template`, {
+     const response = await fetch('https://broadcast-suite-backend.onrender.com/api/generate-template', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${identityJwtToken}` },
         body: JSON.stringify({ businessContext: aiContext, tone: aiTone, sampleRow: parsedRows.length > 0 ? parsedRows[0] : null })
@@ -284,7 +284,7 @@ export default function App() {
     const endpoint = isScheduledCampaign ? 'schedule-broadcast' : 'broadcast';
 
     try {
-      const response = await fetch(`${BACKEND_URL}/api/${endpoint}`, { 
+      const response = await fetch(`https://broadcast-suite-backend.onrender.com/api/${endpoint}`, {
         method: 'POST', 
         headers: { 'Authorization': `Bearer ${identityJwtToken}` }, 
         body: fd 
