@@ -15,11 +15,22 @@ require('dotenv').config();
 // ==========================================
 // FIREBASE ADMIN SDK SERVICE ACCOUNT SETUP
 // ==========================================
-const serviceAccount = require(process.env.FIREBASE_SERVICE_ACCOUNT_PATH || './serviceAccountKey.json');
+const serviceAccountPath = process.env.FIREBASE_SERVICE_ACCOUNT_PATH || path.join(__dirname, 'serviceAccountKey.json');
+let serviceAccount;
 
-admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount)
-});
+try {
+  if (process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
+    serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
+  } else {
+    serviceAccount = require(serviceAccountPath);
+  }
+  admin.initializeApp({
+    credential: admin.credential.cert(serviceAccount)
+  });
+  console.log("🔒 [FIREBASE] Admin SDK successfully initialized.");
+} catch (configError) {
+  console.error("❌ [CRITICAL] Firebase Admin SDK configuration anomaly:", configError.message);
+}
 
 const app = express();
 const server = http.createServer(app);
@@ -27,8 +38,16 @@ const server = http.createServer(app);
 // ==========================================
 // EXPRESS MIDDLEWARE & CROSS-ORIGIN SETUP
 // ==========================================
+// Expanded allowed origins array to safely include live deployed Vercel frontends
+const allowedOrigins = [
+  'http://localhost:5173', 
+  'http://127.0.0.1:5173', 
+  'http://localhost:3000',
+  /\.vercel\.app$/ // Matches any subdomains deployed onto vercel dynamically
+];
+
 app.use(cors({
-  origin: ['http://localhost:5173', 'http://127.0.0.1:5173'], 
+  origin: allowedOrigins,
   methods: ['GET', 'POST'],
   credentials: true
 }));
@@ -36,7 +55,7 @@ app.use(express.json());
 
 const io = new Server(server, {
   cors: {
-    origin: ['http://localhost:5173', 'http://127.0.0.1:5173'],
+    origin: allowedOrigins,
     methods: ['GET', 'POST']
   }
 });
@@ -95,27 +114,23 @@ async function initializeWhatsAppNodePipeline(instanceId) {
   
   try {
     const sessionAuthFolder = path.join(__dirname, 'auth_sessions', instanceId);
-    // Automatically handles reading/creating local session json files on your server hard drive
     const { state, saveCreds } = await useMultiFileAuthState(sessionAuthFolder);
 
     const sock = makeWASocket({
       auth: state,
       printQRInTerminal: false,
-      logger: pino({ level: 'silent' }) // Silences Baileys terminal flooding logs
+      logger: pino({ level: 'silent' }) 
     });
 
     whatsappInstances[instanceId] = sock;
 
-    // Listeners to update token json maps on state change updates
     sock.ev.on('creds.update', saveCreds);
 
     sock.ev.on('connection.update', async (update) => {
       const { connection, lastDisconnect, qr } = update;
 
-      // 1. Dynamic QR String Drop caught here
       if (qr) {
         console.log(`✨ [QR STREAM] New login token generated for node: ${instanceId}`);
-        // Cache the newest string on our terminal map list array item
         activeTerminals = activeTerminals.map(t => t.id === instanceId ? { ...t, status: 'Scan', qr } : t);
         
         io.emit('profiles_update', activeTerminals);
@@ -123,7 +138,6 @@ async function initializeWhatsAppNodePipeline(instanceId) {
         io.to(instanceId).emit('status_change', { instanceId, status: 'Scan', qr });
       }
 
-      // 2. Active Session Disconnected or Closed
       if (connection === 'close') {
         const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut;
         console.log(`❌ Link dropped for node ${instanceId}. Auto-reestablish evaluation: ${shouldReconnect}`);
@@ -132,20 +146,14 @@ async function initializeWhatsAppNodePipeline(instanceId) {
         delete whatsappInstances[instanceId];
 
         if (shouldReconnect) {
-          // Keep engine alive unless user explicitly logged out from panel
           updateTerminalStatus(instanceId, 'Initializing');
           initializeWhatsAppNodePipeline(instanceId);
         } else {
-          // Wipe folder clean if session was permanently unlinked via phone
           await fs.remove(sessionAuthFolder);
         }
       } 
-      
-      // 3. Handshake successful and fully connected
       else if (connection === 'open') {
         console.log(`🟢 [SUCCESS] WhatsApp Session fully paired on node: ${instanceId.toUpperCase()}`);
-        
-        // Remove old qr values from mapping arrays cache
         activeTerminals = activeTerminals.map(t => t.id === instanceId ? { ...t, qr: '' } : t);
         updateTerminalStatus(instanceId, 'Connected');
       }
@@ -198,7 +206,6 @@ app.post('/api/generate-template', verifyAuthToken, (req, res) => {
   return res.status(200).json({ success: true, text: simulatedAiText });
 });
 
-// REAL PRODUCTION BROADCAST EXECUTOR LOOP
 app.post('/api/broadcast', verifyAuthToken, upload.single('broadcastImage'), async (req, res) => {
   const { instanceId, list, messageTemplate, imageCaption } = req.body;
   const targetContacts = JSON.parse(list || '[]');
@@ -208,7 +215,6 @@ app.post('/api/broadcast', verifyAuthToken, upload.single('broadcastImage'), asy
     return res.status(400).json({ success: false, error: `Terminal node ${instanceId.toUpperCase()} has no active connected session.` });
   }
 
-  // Decoupled asynchronous looping to bypass REST API timeouts
   (async () => {
     console.log(`\n🚀 [DISPATCHING BULK] Volume size: ${targetContacts.length} numbers.`);
     for (const contact of targetContacts) {
@@ -231,8 +237,8 @@ app.post('/api/broadcast', verifyAuthToken, upload.single('broadcastImage'), asy
         } else {
           await clientSocket.sendMessage(jid, { text: msg });
         }
-        // Anti-ban random structural cooldown interval buffer spacing delay 
-        await new Promise(r => setTimeout(resolve, 3000 + Math.random() * 2000));
+        // FIXED: Swapped 'resolve' with 'r' variable context to clear loops blocking errors
+        await new Promise(r => setTimeout(r, 3000 + Math.random() * 2000));
       } catch (err) {
         console.error(`Failed pushing data packets to context row ${jid}:`, err.message);
       }
@@ -258,12 +264,10 @@ io.on('connection', (socket) => {
     socket.join(data.instanceId);
     console.log(`Socket node mapping updated: Client account ${socket.id} joined channel ${data.instanceId}`);
     
-    // Automatically trigger Baileys initialization if the instance hasn't been instantiated yet
     if (!whatsappInstances[data.instanceId]) {
       updateTerminalStatus(data.instanceId, 'Initializing');
       initializeWhatsAppNodePipeline(data.instanceId);
     } else {
-      // Send the actual active status down to match view changes smoothly
       const current = activeTerminals.find(t => t.id === data.instanceId);
       if (current) {
         socket.emit('status_change', { instanceId: data.instanceId, status: current.status, qr: current.qr || '' });
@@ -277,7 +281,6 @@ io.on('connection', (socket) => {
     
     const instance = whatsappInstances[targetId];
     
-    // Evaluate exact connection metrics maps directly using Baileys memory tags
     if (instance && instance.user) {
       updateTerminalStatus(targetId, 'Connected');
     } else if (instance) {
@@ -312,7 +315,6 @@ io.on('connection', (socket) => {
         console.log(`🗑️ Erased auth session token folder clean from disk: ${sessionAuthFolder}`);
       }
 
-      // Cycle straight back into Scan layout loops
       updateTerminalStatus(targetId, 'Scan');
       initializeWhatsAppNodePipeline(targetId);
 

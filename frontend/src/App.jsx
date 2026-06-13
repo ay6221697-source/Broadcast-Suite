@@ -4,6 +4,9 @@ import { QRCodeCanvas } from 'qrcode.react';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from 'firebase/auth';
 
+// Define your persistent, hosted backend cloud server domain path here
+const BACKEND_URL = "https://broadcast-suite-backend.onrender.com";
+
 const firebaseConfig = {
   apiKey: process.env.REACT_APP_FIREBASE_API_KEY || "AIzaSyCZHIxA3JK4iKuo9Kpo9p9jnyH9cv83vB0", 
   authDomain: "whatsapp-e0dd2.firebaseapp.com",
@@ -20,7 +23,7 @@ export default function App() {
   const [user, setUser] = useState(null);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false); // Password Visibility State
+  const [showPassword, setShowPassword] = useState(false);
   const [authLoading, setAuthLoading] = useState(false);
   const [passwordError, setPasswordError] = useState('');
 
@@ -58,8 +61,7 @@ export default function App() {
   };
 
   useEffect(() => {
-    socketRef.current = io(window.location.origin, { 
-      path: '/_backend/socket.io',
+    socketRef.current = io(BACKEND_URL, { 
       transports: ['websocket', 'polling']
     });
 
@@ -136,14 +138,19 @@ export default function App() {
       .terminal-control-icon.wa-link:hover { color: #00a884; background-color: rgba(0, 168, 132, 0.1); border-color: rgba(0, 168, 132, 0.2); }
       .terminal-control-icon.term-logout:hover { color: #f25c5c; background-color: rgba(242, 92, 92, 0.1); border-color: rgba(242, 92, 92, 0.2); }
 
-      /* ==================== MEDIA QUERIES FOR MOBILE FRIENDLINESS ==================== */
+      /* ==================== ADVANCED RESPONSIVE GRID QUERIES ==================== */
       @media (max-width: 900px) {
         .wa-grid-layout { grid-template-columns: 1fr !important; height: auto !important; overflow-y: visible !important; }
-        .wa-sidebar-element { border-right: none !important; border-bottom: 1px solid #222e35 !important; height: auto !important; max-height: 400px; }
+        .wa-sidebar-element { border-right: none !important; border-bottom: 1px solid #222e35 !important; height: auto !important; max-height: 380px; }
         .compositor-split-view { grid-template-columns: 1fr !important; }
         .app-container-element { height: auto !important; min-height: 100vh; overflow-y: auto !important; padding: 8px !important; }
         .wa-layout-box { height: auto !important; overflow: visible !important; }
-        .toast-notification { left: 50% !important; transform: translateX(-50%) !important; width: 90%; text-align: center; }
+        .toast-notification { left: 50% !important; transform: translateX(-50%) !important; width: 92%; text-align: center; }
+        
+        /* Premium Header Mobile Override Rules */
+        .premium-header-flex { height: auto !important; padding: 16px !important; flex-direction: column !important; gap: 14px !important; align-items: flex-start !important; }
+        .header-action-cluster { width: 100% !important; justify-content: space-between !important; gap: 10px !important; }
+        .mobile-block-banner { width: 100% !important; }
       }
     `;
     document.head.appendChild(styleSheet);
@@ -226,7 +233,7 @@ export default function App() {
     formData.append('excelFile', file);
     try {
       const identityJwtToken = await auth.currentUser?.getIdToken();
-      const response = await fetch('/_backend/api/upload-recipients', {
+      const response = await fetch(`${BACKEND_URL}/api/upload-recipients`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${identityJwtToken}` },
         body: formData,
@@ -247,7 +254,7 @@ export default function App() {
     setAiLoading(true);
     try {
       const identityJwtToken = await auth.currentUser?.getIdToken();
-      const response = await fetch('/_backend/api/generate-template', {
+      const response = await fetch(`${BACKEND_URL}/api/generate-template`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${identityJwtToken}` },
         body: JSON.stringify({ businessContext: aiContext, tone: aiTone, sampleRow: parsedRows.length > 0 ? parsedRows[0] : null })
@@ -277,7 +284,7 @@ export default function App() {
     const endpoint = isScheduledCampaign ? 'schedule-broadcast' : 'broadcast';
 
     try {
-      const response = await fetch(`/_backend/api/${endpoint}`, { 
+      const response = await fetch(`${BACKEND_URL}/api/${endpoint}`, { 
         method: 'POST', 
         headers: { 'Authorization': `Bearer ${identityJwtToken}` }, 
         body: fd 
@@ -347,12 +354,11 @@ export default function App() {
                   type="button" 
                   onClick={() => setShowPassword(!showPassword)} 
                   style={styles.passwordEyeToggle}
-                  title={showPassword ? "Hide password" : "Show password"}
                 >
                   {showPassword ? (
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-7-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 7 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-7-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 7 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
                   ) : (
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
                   )}
                 </button>
               </div>
@@ -399,14 +405,15 @@ export default function App() {
       )}
 
       <div className="wa-layout-box" style={styles.waLayoutContainer}>
-        <header style={styles.header}>
-          <div style={styles.brandGroup}>
+        {/* REFACTORED PREMIUM RESPONSIVE HEADER FRAME */}
+        <header className="premium-header-flex" style={styles.header}>
+          <div className="mobile-block-banner" style={styles.brandGroup}>
             <div>
               <div style={styles.logoSubText}>PRYTIK TECHNOLOGIES</div>
               <h1 style={styles.logoMainText}>Broadcast Suite</h1>
             </div>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <div className="header-action-cluster" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
             <div style={styles.statusBadge}>
               <span className={connectionStatus.toLowerCase() === 'connected' ? 'pulse-active' : ''} style={styles.statusDot(connectionStatus)}></span>
               <span style={{ color: '#8696a0', fontSize: '13px' }}>Node: <strong style={styles.nodeHighlight}>{selectedInstanceId.toUpperCase()}</strong></span>
@@ -549,7 +556,7 @@ export default function App() {
                         <input ref={imageInputRef} type="file" id="broadcast-image-file" accept="image/*" onChange={handleImageAttach} style={{ display: 'none' }} />
                         <label htmlFor="broadcast-image-file" className="interactive-btn" style={styles.imageAttachButton}>📷 Attach Campaign Image</label>
                         {attachedImage && (
-                          <button type="button" onClick={handleRemoveImage} className="interactive-btn" style={styles.imageRemoveButton} title="Clear attachment">✕ Remove</button>
+                          <button type="button" onClick={handleRemoveImage} className="interactive-btn" style={styles.imageRemoveButton}>✕ Remove</button>
                         )}
                       </div>
                       {attachedImage && (
@@ -634,7 +641,7 @@ const styles = {
   modalLiveIndicatorDot: { width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#e0b339' },
 
   waLayoutContainer: { width: '100%', maxWidth: '1650px', height: '100%', backgroundColor: '#111b21', borderRadius: '12px', display: 'flex', flexDirection: 'column', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.05)', boxShadow: '0 20px 45px rgba(0,0,0,0.5)' },
-  header: { height: '64px', backgroundColor: '#202c33', padding: '0 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0, borderBottom: '1px solid rgba(255,255,255,0.03)' },
+  header: { minHeight: '64px', backgroundColor: '#202c33', padding: '0 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0, borderBottom: '1px solid rgba(255,255,255,0.03)', boxSizing: 'border-box' },
   logoSubText: { fontSize: '9px', fontWeight: '700', color: '#00a884', letterSpacing: '2.5px' },
   logoMainText: { fontSize: '16px', fontWeight: '600', color: '#e9edef', margin: '2px 0 0 0' },
   statusBadge: { display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: '#111b21', padding: '6px 14px', borderRadius: '20px', fontSize: '12.5px', border: '1px solid rgba(255,255,255,0.05)' },
