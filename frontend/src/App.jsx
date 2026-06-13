@@ -658,7 +658,7 @@ const styles = {
   compositorSplitWorkspace: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' },
   waTextareaLayout: { width: '100%', height: '130px', backgroundColor: 'rgba(42, 57, 66, 0.3)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', padding: '14px', color: '#fff', resize: 'none', outline: 'none', fontSize: '13.5px', lineHeight: '1.5', boxSizing: 'border-box' },
   imageAttachZone: { backgroundColor: 'rgba(32, 44, 51, 0.4)', padding: '12px', borderRadius: '8px', border: '1px dashed rgba(255,255,255,0.08)' },
-  imageAttachButton: { backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', color: '#e9edef', padding: '8px 14px', borderRadius: '6px', cursor: 'pointer', fontSize: '12.5px', fontWeight: '500', display: 'inline-block' },
+  imageAttachButton: { backgroundColor: '#2a3942', border: '1px solid rgba(255,255,255,0.07)', color: '#e9edef', padding: '8px 14px', borderRadius: '6px', cursor: 'pointer', fontSize: '12.5px', fontWeight: '500', display: 'inline-block' },
   imageRemoveButton: { backgroundColor: 'transparent', border: 'none', color: '#ea0038', cursor: 'pointer', fontSize: '12.5px', fontWeight: '500' },
   imageThumbnailWrapper: { width: '56px', height: '56px', borderRadius: '6px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.05)', flexShrink: 0 },
   imageThumbnail: { width: '100%', height: '100%', objectFit: 'cover' },
