@@ -221,14 +221,23 @@ io.on('connection', (socket) => {
   console.log(`🔌 Socket connected: ${socket.id}`);
   socket.emit('profiles_update', activeTerminals);
 
-  socket.on('join_instance', ({ instanceId }) => {
+socket.on('join_instance', ({ instanceId }) => {
     socket.join(instanceId);
-    if (!whatsappInstances[instanceId]) {
+    
+    const current = activeTerminals.find(t => t.id === instanceId);
+    const sock = whatsappInstances[instanceId];
+
+    // FIX: Agar background socket already active aur connected hai, toh persistent 'Connected' status hi rakho
+    if (sock && sock.user) {
+      updateTerminalStatus(instanceId, 'Connected');
+      socket.emit('status_change', { instanceId, status: 'Connected', qr: '' });
+    } else if (sock) {
+      // Agar socket workflow running hai par scanning loop state me hai
+      socket.emit('status_change', { instanceId, status: current?.status || 'Scan', qr: current?.qr || '' });
+    } else {
+      // Sirf tabhi Initializing dikhao jab instance backend memory me exist hi na karta ho
       updateTerminalStatus(instanceId, 'Initializing');
       initializeWhatsAppNodePipeline(instanceId);
-    } else {
-      const current = activeTerminals.find(t => t.id === instanceId);
-      if (current) socket.emit('status_change', { instanceId, status: current.status, qr: current.qr || '' });
     }
   });
 
