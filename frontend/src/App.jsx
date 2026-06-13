@@ -20,6 +20,7 @@ export default function App() {
   const [user, setUser] = useState(null);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false); // Password Visibility State
   const [authLoading, setAuthLoading] = useState(false);
   const [passwordError, setPasswordError] = useState('');
 
@@ -57,7 +58,6 @@ export default function App() {
   };
 
   useEffect(() => {
-    // Dynamic Socket Instantiation for Vercel Routing Contexts
     socketRef.current = io(window.location.origin, { 
       path: '/_backend/socket.io',
       transports: ['websocket', 'polling']
@@ -135,6 +135,16 @@ export default function App() {
       .terminal-control-icon:hover { transform: scale(1.05); }
       .terminal-control-icon.wa-link:hover { color: #00a884; background-color: rgba(0, 168, 132, 0.1); border-color: rgba(0, 168, 132, 0.2); }
       .terminal-control-icon.term-logout:hover { color: #f25c5c; background-color: rgba(242, 92, 92, 0.1); border-color: rgba(242, 92, 92, 0.2); }
+
+      /* ==================== MEDIA QUERIES FOR MOBILE FRIENDLINESS ==================== */
+      @media (max-width: 900px) {
+        .wa-grid-layout { grid-template-columns: 1fr !important; height: auto !important; overflow-y: visible !important; }
+        .wa-sidebar-element { border-right: none !important; border-bottom: 1px solid #222e35 !important; height: auto !important; max-height: 400px; }
+        .compositor-split-view { grid-template-columns: 1fr !important; }
+        .app-container-element { height: auto !important; min-height: 100vh; overflow-y: auto !important; padding: 8px !important; }
+        .wa-layout-box { height: auto !important; overflow: visible !important; }
+        .toast-notification { left: 50% !important; transform: translateX(-50%) !important; width: 90%; text-align: center; }
+      }
     `;
     document.head.appendChild(styleSheet);
 
@@ -225,8 +235,10 @@ export default function App() {
       if (data.success) {
         setParsedRows(data.data);
         showNotification(`Loaded ${data.data.length} contacts successfully.`, "success");
+      } else {
+        showNotification("File parsing structure rejection from node.", "error");
       }
-    } catch (err) { showNotification("Failed to parse the file.", "error"); }
+    } catch (err) { showNotification("Failed to parse the file template.", "error"); }
     finally { setUploadLoading(false); }
   };
 
@@ -244,8 +256,8 @@ export default function App() {
       if (data.success) {
         setTemplateMessage(data.text);
         showNotification("AI template updated!", "success");
-      } else { showNotification(data.error, "error"); }
-    } catch (err) { showNotification("Could not connect to the AI server.", "error"); }
+      } else { showNotification(data.error || "Generation rejected.", "error"); }
+    } catch (err) { showNotification("Could not connect to the AI template engine.", "error"); }
     finally { setAiLoading(false); }
   };
 
@@ -299,7 +311,7 @@ export default function App() {
 
   if (!user) {
     return (
-      <div style={styles.appContainer}>
+      <div className="app-container-element" style={styles.appContainer}>
         <div style={{ ...styles.blurCircle, top: '-10%', left: '-15%', background: 'radial-gradient(circle, rgba(0,168,132,0.15) 0%, transparent 60%)' }}></div>
         <div style={{ ...styles.blurCircle, bottom: '-10%', right: '-15%', background: 'radial-gradient(circle, rgba(83,189,235,0.08) 0%, transparent 60%)' }}></div>
         
@@ -322,7 +334,28 @@ export default function App() {
             
             <div style={styles.inputGroup}>
               <label style={styles.fieldLabel}>Password</label>
-              <input type="password" className="input-focus-effect" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" style={styles.authTextInput} />
+              <div style={{ position: 'relative' }}>
+                <input 
+                  type={showPassword ? "text" : "password"} 
+                  className="input-focus-effect" 
+                  value={password} 
+                  onChange={(e) => setPassword(e.target.value)} 
+                  placeholder="••••••••" 
+                  style={{ ...styles.authTextInput, paddingRight: '44px' }} 
+                />
+                <button 
+                  type="button" 
+                  onClick={() => setShowPassword(!showPassword)} 
+                  style={styles.passwordEyeToggle}
+                  title={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? (
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-7-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 7 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
+                  ) : (
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                  )}
+                </button>
+              </div>
             </div>
             
             {passwordError && <div style={styles.authErrorContainer}>⚠️ {passwordError}</div>}
@@ -337,14 +370,13 @@ export default function App() {
   }
 
   return (
-    <div style={styles.appContainer}>
+    <div className="app-container-element" style={styles.appContainer}>
       {toast.show && (
         <div className="toast-notification" style={{ ...styles.toastWrapper, ...styles.toastTypeStyles[toast.type] }}>
           <span>{toast.message}</span>
         </div>
       )}
 
-      {/* ==================== CENTRALIZED PREMIUM QR MODAL OVERLAY ==================== */}
       {isQrModalOpen && qrString && (
         <div onClick={() => setIsQrModalOpen(false)} style={styles.modalBackdropOverlay}>
           <div onClick={(e) => e.stopPropagation()} className="modal-animation" style={styles.modalContentGlassBox}>
@@ -366,7 +398,7 @@ export default function App() {
         </div>
       )}
 
-      <div style={styles.waLayoutContainer}>
+      <div className="wa-layout-box" style={styles.waLayoutContainer}>
         <header style={styles.header}>
           <div style={styles.brandGroup}>
             <div>
@@ -390,8 +422,8 @@ export default function App() {
           </div>
         </header>
 
-        <div style={styles.waBodyWrapperGrid}>
-          <aside style={styles.waLeftSidebar}>
+        <div className="wa-grid-layout" style={styles.waBodyWrapperGrid}>
+          <aside className="wa-sidebar-element" style={styles.waLeftSidebar}>
             <div style={styles.sidebarMetaBanner}><div style={{ fontSize: '12px', fontWeight: '500', color: '#e9edef' }}>WhatsApp Active Nodes</div></div>
             <div style={styles.sidebarScrollZone} className="custom-scrollbar">
               {profileAccounts.map((profile) => (
@@ -508,7 +540,7 @@ export default function App() {
                   ))}
                 </div>
 
-                <div style={styles.compositorSplitWorkspace}>
+                <div className="compositor-split-view" style={styles.compositorSplitWorkspace}>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                     <textarea ref={textareaRef} className="input-focus-effect" value={templateMessage} onChange={(e) => setTemplateMessage(e.target.value)} style={styles.waTextareaLayout} placeholder="Compose communication template strings here..." />
                     
@@ -589,7 +621,8 @@ const styles = {
   authTextInput: { width: '100%', boxSizing: 'border-box', backgroundColor: 'rgba(42, 57, 66, 0.4)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', padding: '12px 14px', color: '#fff', fontSize: '14px', outline: 'none' },
   authErrorContainer: { color: '#f25c5c', fontSize: '13px', backgroundColor: 'rgba(242,92,92,0.08)', border: '1px solid rgba(242,92,92,0.15)', padding: '10px', borderRadius: '6px', marginBottom: '12px', fontWeight: '500' },
   authSubmitButton: { width: '100%', padding: '12px', backgroundColor: '#00a884', color: '#111b21', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: '600', cursor: 'pointer', boxShadow: '0 4px 15px rgba(0,168,132,0.2)' },
-  
+  passwordEyeToggle: { position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', background: 'transparent', border: 'none', color: '#8696a0', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '4px', outline: 'none' },
+
   modalBackdropOverlay: { position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(11, 20, 26, 0.85)', backdropFilter: 'blur(12px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, transition: 'all 0.2s' },
   modalContentGlassBox: { backgroundColor: '#222e35', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', padding: '24px', width: '90%', maxWidth: '360px', boxShadow: '0 30px 60px rgba(0,0,0,0.6)', display: 'flex', flexDirection: 'column', gap: '20px' },
   modalHeaderGroup: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' },
