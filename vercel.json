@@ -1,10 +1,6 @@
 {
   "version": 2,
-  "outputDirectory": "frontend/dist",
-  "rewrites": [
-    {
-      "source": "/(.*)",
-      "destination": "/frontend/$1"
-    }
-  ]
+  "rootDirectory": "frontend",
+  "outputDirectory": "dist",
+  "framework": "vite"
 }
